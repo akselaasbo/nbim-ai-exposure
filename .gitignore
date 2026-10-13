@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 data/raw/
 .DS_Store
+data/labels/sample_labelling.xlsx
+data/labels/backups/
+~$*.xlsx
