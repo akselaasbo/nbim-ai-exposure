@@ -1,0 +1,2 @@
+company_id,name,country,size_group,my_category,my_confidence,model_category,model_confidence,model_knows_company,model_rationale,my_note
+NBIM03549,UNISOL Holdings Corp,Japan,rest,BENEFICIARY,low,LIMITED,low,False,"Unrecognised Japanese industrials company; no evident AI-supplier or substitution exposure, so AI is unlikely a top-three driver of its investment case.",

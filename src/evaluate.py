@@ -85,13 +85,18 @@ def main() -> None:
         print("  Missing: " + ", ".join(missing["name"]))
 
     acc = accuracy_table(df)
+    # Baseline: always answer LIMITED. Non-LIMITED: only the companies I labelled as something else.
+    baseline = accuracy_row("baseline_always_LIMITED", "all", df.assign(correct=df["my_category"] == "LIMITED"))
+    non_limited = accuracy_row("non_LIMITED_found", "all", df[df["my_category"] != "LIMITED"])
+    acc = pd.concat([acc, pd.DataFrame([baseline, non_limited])], ignore_index=True)
     print("\nAccuracy (95% Wilson interval):")
     for _, r in acc.iterrows():
         if r["n"]:
-            print(f"  {r['group']:17} {r['value']:7} {r['correct']:3}/{r['n']:<3} = {r['accuracy']:6.1%}"
+            print(f"  {r['group']:23} {r['value']:7} {r['correct']:3}/{r['n']:<3} = {r['accuracy']:6.1%}"
                   f"   [{r['ci_low']:.0%}, {r['ci_high']:.0%}]")
         else:
-            print(f"  {r['group']:17} {r['value']:7}   0 companies")
+            print(f"  {r['group']:23} {r['value']:7}   0 companies")
+    print("  (baseline = always answer LIMITED; non_LIMITED_found = of my non-LIMITED companies, how many the model got right)")
 
     unknown = (~df["model_knows_company"].astype(bool)).sum()
     print(f"\nknows_company = false: {unknown} of {len(df)} ({unknown / len(df):.0%})")
