@@ -4,8 +4,10 @@ One request per company. System prompt = docs/codebook.md (cached with cache_con
 The answer is forced into OUTPUT_SCHEMA with output_config.format (structured outputs),
 which works the same way on claude-haiku-5-5 and claude-sonnet-5-5. The model gets no tools.
 
-Each answer is validated in Python (allowed values, knows_company=false -> confidence=low,
-rationale at most 25 words) and retried up to 3 times. Every company becomes one JSONL line.
+Each answer is validated in Python (allowed values, knows_company=false -> confidence=low) and
+retried up to 3 times. A rationale over 25 words is only a warning: the answer is accepted and
+the line gets word_limit_exceeded=true. Rejected raw answers are kept in rejected_raw.
+Every company becomes one JSONL line.
 Re-running the same command skips companies that already have a valid line (resume).
 """
 
@@ -50,20 +52,22 @@ def build_params(model: str, system_prompt: str, company: pd.Series) -> dict:
 
 # ---------- validation ----------
 
-def parse_and_validate(message) -> tuple[dict | None, list[str]]:
-    """Return (output, errors). output is None if the response cannot be used at all."""
-    if message.stop_reason == "refusal":
-        return None, [f"refusal: {message.stop_details}"]
-    if message.stop_reason == "max_tokens":
-        return None, ["stopped at max_tokens"]
+def parse_and_validate(message) -> tuple[dict | None, list[str], str | None, bool]:
+    """Return (output, errors, raw_text, word_limit_exceeded).
 
+    output is None if the response cannot be used. The word limit never causes an error.
+    """
+    if message.stop_reason == "refusal":
+        return None, [f"refusal: {message.stop_details}"], None, False
     text = next((block.text for block in message.content if block.type == "text"), None)
+    if message.stop_reason == "max_tokens":
+        return None, ["stopped at max_tokens"], text, False
     if text is None:
-        return None, ["no text block in response"]
+        return None, ["no text block in response"], None, False
     try:
         output = json.loads(text)
     except json.JSONDecodeError as e:
-        return None, [f"invalid JSON: {e}"]
+        return None, [f"invalid JSON: {e}"], text, False
 
     errors = []
     if output.get("category") not in CATEGORIES:
@@ -74,10 +78,10 @@ def parse_and_validate(message) -> tuple[dict | None, list[str]]:
         errors.append(f"knows_company is not a bool: {output.get('knows_company')!r}")
     if output.get("knows_company") is False and output.get("confidence") != "low":
         errors.append(f"knows_company=false but confidence={output.get('confidence')!r}")
-    n_words = len(str(output.get("rationale", "")).split())
-    if n_words == 0 or n_words > MAX_RATIONALE_WORDS:
-        errors.append(f"rationale has {n_words} words (max {MAX_RATIONALE_WORDS})")
-    return output, errors
+    if not str(output.get("rationale", "")).strip():
+        errors.append("empty rationale")
+    word_limit_exceeded = len(str(output.get("rationale", "")).split()) > MAX_RATIONALE_WORDS
+    return (None if errors else output), errors, text, word_limit_exceeded
 
 
 def add_usage(total: dict, usage) -> None:
@@ -85,7 +89,8 @@ def add_usage(total: dict, usage) -> None:
         total[field] += getattr(usage, field, 0) or 0
 
 
-def make_line(company_id: str, model: str, output, usage: dict, attempts: int, errors: list[str]) -> dict:
+def make_line(company_id: str, model: str, output, usage: dict, attempts: int, errors: list[str],
+              word_limit_exceeded: bool = False, rejected_raw: list | None = None) -> dict:
     return {
         "company_id": company_id,
         "output": output,
@@ -94,7 +99,9 @@ def make_line(company_id: str, model: str, output, usage: dict, attempts: int, e
         "effort": EFFORT,
         "usage": usage,
         "attempts": attempts,
-        "validation_errors": errors,  # errors from rejected attempts; kept so rule breaks stay visible
+        "word_limit_exceeded": word_limit_exceeded,  # rationale over 25 words (accepted, warning only)
+        "validation_errors": errors,  # errors from rejected attempts
+        "rejected_raw": rejected_raw or [],  # raw model text of rejected attempts
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -103,7 +110,7 @@ def make_line(company_id: str, model: str, output, usage: dict, attempts: int, e
 
 def classify_one(client, params: dict, company_id: str) -> dict:
     usage = {field: 0 for field in USAGE_FIELDS}
-    all_errors = []
+    all_errors, rejected_raw = [], []
     for attempt in range(1, MAX_RETRIES + 2):  # first try + 3 retries
         try:
             message = client.messages.create(**params)
@@ -113,13 +120,16 @@ def classify_one(client, params: dict, company_id: str) -> dict:
             all_errors.append(f"attempt {attempt}: API error: {e}")
         else:
             add_usage(usage, message.usage)
-            output, errors = parse_and_validate(message)
-            if output is not None and not errors:
-                return make_line(company_id, params["model"], output, usage, attempt, all_errors)
+            output, errors, raw, too_long = parse_and_validate(message)
+            if output is not None:
+                return make_line(company_id, params["model"], output, usage, attempt, all_errors,
+                                 too_long, rejected_raw)
             all_errors += [f"attempt {attempt}: {err}" for err in errors]
+            rejected_raw.append(raw)
         if attempt <= MAX_RETRIES:
             time.sleep(2 ** attempt)
-    return make_line(company_id, params["model"], None, usage, MAX_RETRIES + 1, all_errors)
+    return make_line(company_id, params["model"], None, usage, MAX_RETRIES + 1, all_errors,
+                     rejected_raw=rejected_raw)
 
 
 # ---------- files, resume and cost ----------
@@ -169,6 +179,7 @@ def print_run_summary(path: Path, model: str) -> None:
     price_in, price_out = PRICES_PER_MTOK[model]
     print(f"\n{path.name}: {len(ok)} valid of {len(records)} lines")
     print(f"Retried after a validation/API error: {sum(r['attempts'] > 1 for r in ok)}")
+    print(f"Accepted answers over the word limit: {sum(r.get('word_limit_exceeded', False) for r in ok)}")
     print("Tokens: " + ", ".join(f"{k}={v:,}" for k, v in totals.items()))
     if totals["cache_read_input_tokens"]:
         print(f"Cache hits: yes, {sum(r['usage']['cache_read_input_tokens'] > 0 for r in records)} of {len(records)} lines read from cache")
@@ -201,12 +212,11 @@ def run_batch(client, todo: pd.DataFrame, params_by_id: dict, out: Path, model: 
         usage = {field: 0 for field in USAGE_FIELDS}
         if result.result.type == "succeeded":
             add_usage(usage, result.result.message.usage)
-            output, errors = parse_and_validate(result.result.message)
-            if errors:
-                output = None
+            output, errors, raw, too_long = parse_and_validate(result.result.message)
+            rejected = [raw] if output is None else []
         else:
-            output, errors = None, [f"batch result: {result.result.type}"]
-        append_line(out, make_line(result.custom_id, model, output, usage, 1, errors))
+            output, errors, too_long, rejected = None, [f"batch result: {result.result.type}"], False, []
+        append_line(out, make_line(result.custom_id, model, output, usage, 1, errors, too_long, rejected))
 
 
 # ---------- main ----------

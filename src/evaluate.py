@@ -46,6 +46,16 @@ def load_outputs(path: Path) -> pd.DataFrame:
     return pd.DataFrame(rows).drop_duplicates("company_id", keep="last")
 
 
+def print_word_limit_counts(path: Path) -> None:
+    """Count answers over 25 words: accepted ones (flag) and ones rejected before the flag existed."""
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    accepted = sum(r.get("word_limit_exceeded", False) for r in records)
+    rejected = sum("rationale has" in e for r in records for e in r["validation_errors"])
+    print(f"Answers over the 25-word limit: {accepted + rejected} in total "
+          f"({accepted} accepted with word_limit_exceeded=true, {rejected} rejected in earlier attempts) "
+          f"out of {sum(r['attempts'] for r in records)} model answers")
+
+
 def accuracy_row(group: str, value: str, df: pd.DataFrame) -> dict:
     n, correct = len(df), int(df["correct"].sum())
     low, high = wilson_interval(correct, n)
@@ -101,6 +111,7 @@ def main() -> None:
     unknown = (~df["model_knows_company"].astype(bool)).sum()
     print(f"\nknows_company = false: {unknown} of {len(df)} ({unknown / len(df):.0%})")
     print(f"Needed a retry: {(df['attempts'] > 1).sum()} of {len(df)}")
+    print_word_limit_counts(path)
 
     confusion = pd.crosstab(
         pd.Categorical(df["my_category"], categories=CATEGORIES, ordered=True),
