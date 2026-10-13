@@ -21,14 +21,17 @@ is wrong, and whether its stated confidence can be trusted. Honest method beats 
 - **The test split is used once.** Tune prompt and codebook on `dev` only. After the final test
   run, do not change the prompt and re-run test.
 - Ask before any command that could cost more than USD 2 in API usage. Print an estimate first.
-- The model gets no web search and no tools other than the forced output tool.
+- The model gets no web search and no tools.
 
 ## Tech choices
 - Python 3.11+, virtual env in `.venv`, dependencies in `requirements.txt`.
 - pandas, matplotlib, `anthropic` SDK, `python-dotenv`.
 - Models: `claude-haiku-5-5` (default), `claude-sonnet-5-5` (comparison on test only).
-- Structured output via a forced tool call named `record_classification`, validated against the
-  allowed values. Retry up to 3 times with backoff.
+- Structured output via `output_config.format` (JSON schema `OUTPUT_SCHEMA` in `src/prompt.py`),
+  the same for both models. Not a forced tool call: forced `tool_choice` returns 400 on
+  `claude-sonnet-5-5`. Same `effort` for both models (`medium`), no sampling parameters.
+- Validated in Python: allowed values, `knows_company=false` requires `confidence=low`, rationale
+  at most 25 words. Retry up to 3 times with backoff; rejected attempts are logged in the JSONL.
 - Outputs are appended to JSONL (one line per company, with model, prompt_version, token usage,
   timestamp) so runs can resume after a crash.
 - Random seed 42 everywhere.

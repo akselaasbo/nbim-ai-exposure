@@ -1,0 +1,2 @@
+company_id,name,country,size_group,my_category,my_confidence,model_category,model_confidence,model_knows_company,model_rationale,my_note
+NBIM06124,Deere & Co,United States,top500,LIMITED,medium,BENEFICIARY,medium,True,"Deere sells precision agriculture equipment with AI-enabled see-and-spray and autonomy features that drive upgrades and pricing power, though it is not mainly selling AI infrastructure.",
