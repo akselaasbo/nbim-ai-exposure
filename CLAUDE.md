@@ -3,7 +3,7 @@
 ## What this project is
 A small research project: use a language model (Claude Haiku 5.5 via the Anthropic API) to classify
 every equity holding in Norway's Government Pension Fund Global by its exposure to AI, and measure
-how far the model can be trusted against a hand-labelled set of 60 companies.
+how far the model can be trusted against a hand-labelled set of 40 companies.
 
 The point is not the classifier. The point is the evaluation: where the model is right, where it
 is wrong, and whether its stated confidence can be trusted. Honest method beats polish.
