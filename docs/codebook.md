@@ -53,6 +53,8 @@ banks, insurers, industrials and energy companies, unless a rule above clearly a
 | Banks and insurers using AI internally | LIMITED, unless AI is clearly a top-three driver |
 | Holding companies and conglomerates | Classify by the largest segment by revenue |
 | Company you do not recognise | Infer from name, country and industry, set `knows_company` = false and confidence = low |
+| Device makers (smartphones, PCs, consumer electronics) | BENEFICIARY if AI features are a main reason customers upgrade (e.g. Apple, medium confidence); otherwise LIMITED |
+| Memory and chip makers with large consumer businesses (e.g. Samsung Electronics) | ENABLER if AI memory/chip demand is a top-three driver; set confidence to medium |
 
 ## Output fields
 - `category`: ENABLER, DISRUPTED, BENEFICIARY or LIMITED
