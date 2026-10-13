@@ -7,3 +7,4 @@ data/raw/
 data/labels/sample_labelling.xlsx
 data/labels/backups/
 ~$*.xlsx
+*.batch_id
