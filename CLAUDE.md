@@ -1,4 +1,4 @@
-# CLAUDE.md — fund-ai-exposure
+# CLAUDE.md — nbim-ai-exposure
 
 ## What this project is
 A small research project: use a language model (Claude Haiku 5.5 via the Anthropic API) to classify
@@ -30,8 +30,9 @@ is wrong, and whether its stated confidence can be trusted. Honest method beats 
 - Structured output via `output_config.format` (JSON schema `OUTPUT_SCHEMA` in `src/prompt.py`),
   the same for both models. Not a forced tool call: forced `tool_choice` returns 400 on
   `claude-sonnet-5-5`. Same `effort` for both models (`medium`), no sampling parameters.
-- Validated in Python: allowed values, `knows_company=false` requires `confidence=low`, rationale
-  at most 25 words. Retry up to 3 times with backoff; rejected attempts are logged in the JSONL.
+- Validated in Python: allowed values and `knows_company=false` requires `confidence=low`.
+  A rationale over 25 words is only a warning (`word_limit_exceeded=true` in the JSONL).
+  Retry up to 3 times with backoff; rejected attempts are logged in the JSONL.
 - Outputs are appended to JSONL (one line per company, with model, prompt_version, token usage,
   timestamp) so runs can resume after a crash.
 - Random seed 42 everywhere.
