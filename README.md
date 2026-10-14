@@ -1,9 +1,9 @@
 # nbim-ai-exposure
 
 **About 38% of the fund's equity value sits in companies that sell or benefit from AI, but the figure is driven by a few giant holdings: nine of the ten largest are ENABLERS.**
-ENABLER 30.5% + BENEFICIARY 7.6% = 38.2% of NOK 16.44 trillion. DISRUPTED is 1.7% and LIMITED is 60.1%. The ten largest holdings are 20.9% of the portfolio.
+ENABLER is 30.5% and BENEFICIARY 7.6%, 38.2% together (rounded), of NOK 16.44 trillion. DISRUPTED is 1.7% and LIMITED is 60.1%. The ten largest holdings are 20.9% of the portfolio.
 
-This is a small research project. A language model (Claude Haiku 5.5) classified all 7,077 equity holdings of Norway's Government Pension Fund Global by AI exposure. I then checked how far the model can be trusted against 40 companies I labelled by hand. The point is the evaluation, not the classifier.
+This is a small research project. A language model (Claude Haiku 5.5) classified all 7,077 equity holdings of Norway's Government Pension Fund Global by AI exposure. I then checked how far the model can be trusted against 40 companies I labelled by hand.
 
 ![Share of portfolio value per AI-exposure category](results/figures/fig1_value_share_by_category.png)
 
@@ -28,7 +28,7 @@ Test split, 20 companies:
 | 95% Wilson interval | 76–99% | 76–99% | 58–92% |
 | Non-LIMITED companies found (4 in total) | 3 | 3 | 0 |
 
-- Both models made the same single error: UNISOL Holdings (Japan). I labelled it BENEFICIARY with low confidence. Both models did not recognise it, said LIMITED, and flagged low confidence and knows_company=false.
+- Both models made the same single error: UNISOL Holdings (Japan). I labelled it BENEFICIARY with low confidence. Neither model recognised it. Both said LIMITED, and flagged low confidence and knows_company=false.
 - **Confidence.** Haiku was right on 14/14 high-confidence answers, 4/4 medium and 1/2 low. These counts are far too small to call the confidence "calibrated". They only show that nothing contradicts it.
 - **Unknown companies.** In the full run the model said it did not know 21.6% of the companies. They hold only 1.7% of the portfolio value.
 - **Dev split.** Haiku got 19/20. The error was Deere & Co (see below).
@@ -40,7 +40,7 @@ Full tables, the 15 largest companies per category and a random spot check are i
 
 - There is no DISRUPTED company in my labelled set. DISRUPTED is not validated at all.
 - Only 20 test companies. One error moves accuracy by 5 percentage points, and the models are not separable at this size.
-- I made the labels without AI help, but thoroughness was not a high priority. The main goal was to learn how the method works. The labels are a rough benchmark, not a gold standard.
+- Labels were made from memory and a quick web search, without AI help. Thoroughness was not a high priority, so they are a rough benchmark.
 - The model had no web search and no tools. It saw only company name, country and industry, and answered from its training data (knowledge cutoff June 2026). Companies it did not know were flagged with knows_company=false.
 - The word limit on the rationale (25 words) was changed from an error to a warning after the test run. Some answers are longer than the limit and are flagged in the data. The categories were not affected.
 - The 40 sample companies were classified again in the full run and may differ slightly from the test files.
